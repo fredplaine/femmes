@@ -104,6 +104,7 @@
             const [showSwipeHint, setShowSwipeHint] = useState(false);
             const utteranceRef = useRef(null);
             const rootRef = useRef(null);
+            const turboModeRef = useRef(false);
             const [presidentSpeechState, setPresidentSpeechState] = useState('idle'); // 'idle', 'playing', 'paused'
             const presidentChunksRef = useRef(null);
             const presidentChunkIndexRef = useRef(0);
@@ -607,7 +608,7 @@
 
                     const u = new SpeechSynthesisUtterance(part);
                     u.lang = lang;
-                    u.rate = turboMode ? rate * 1.3 : rate;
+                    u.rate = rate;
                     u.pitch = pitch;
                     if (voiceName) {
                         const v = voices.find(vv => vv.name === voiceName);
@@ -747,7 +748,7 @@
 
                     const u = new SpeechSynthesisUtterance(part);
                     u.lang = lang;
-                    u.rate = turboMode ? rate * 1.3 : rate;
+                    u.rate = rate;
                     u.pitch = pitch;
                     if (voiceName) {
                         const v = voices.find(vv => vv.name === voiceName);
@@ -788,7 +789,7 @@
                 const voiceKey = gender === 'female' ? 'FEMMES' : 'HOMMES';
                 const voiceName = selectedVoices[voiceKey];
                 const pitch = gender === 'female' ? 1.1 : 0.75;
-                const textToSpeak = (turboMode && isCueLine) ? getLastSentence(text) : text;
+                const textToSpeak = (turboModeRef.current && isCueLine) ? getLastSentence(text) : text;
                 
                 speakWithPunctuationPauses(textToSpeak, { voiceName, pitch, rate: speechRate }, () => {
                     const totalLines = sections[currentSection].lines.length;
@@ -796,26 +797,26 @@
                     const basePause = 800;
                     const lengthBasedPause = Math.min(textLength * 20, 2000);
                     const totalPause = basePause + lengthBasedPause;
+                    const isTurbo = turboModeRef.current;
 
-                    if (turboMode && isCueLine) {
-                        // On est sur la cue line : avancer d'une ligne (= la réplique du Président)
-                        setTimeout(() => setCurrentLine(prev => prev + 1), totalPause);
+                    if (isTurbo && isCueLine) {
+                        // Cue line lue : avancer d'une ligne (= la réplique du Président)
+                        setTimeout(() => setCurrentLine(prev => prev + 1), 300);
                         return;
                     }
 
-                    if (turboMode) {
-                        // Chercher la prochaine cue line dans cette section
+                    if (isTurbo) {
+                        // Sauter à la prochaine cue line
                         const cueIdx = findCueLineIndex(currentSection, currentLine);
                         if (cueIdx !== null) {
-                            setTimeout(() => setCurrentLine(cueIdx), totalPause);
+                            setTimeout(() => setCurrentLine(cueIdx), 300);
                             return;
                         } else if (currentSection < sections.length - 1) {
-                            // Chercher dans la section suivante
                             const nextCueIdx = findCueLineIndex(currentSection + 1, -1);
                             if (nextCueIdx !== null) {
-                                setTimeout(() => { setCurrentSection(prev => prev + 1); setCurrentLine(nextCueIdx); }, totalPause + 400);
+                                setTimeout(() => { setCurrentSection(prev => prev + 1); setCurrentLine(nextCueIdx); }, 400);
                             } else {
-                                setTimeout(() => { setCurrentSection(prev => prev + 1); setCurrentLine(0); }, totalPause + 400);
+                                setTimeout(() => { setCurrentSection(prev => prev + 1); setCurrentLine(0); }, 400);
                             }
                             return;
                         } else {
