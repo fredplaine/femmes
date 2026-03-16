@@ -104,6 +104,11 @@
             const [showSwipeHint, setShowSwipeHint] = useState(false);
             const utteranceRef = useRef(null);
             const rootRef = useRef(null);
+            const [presidentSpeechState, setPresidentSpeechState] = useState('idle'); // 'idle', 'playing', 'paused'
+            const presidentChunksRef = useRef(null);
+            const presidentChunkIndexRef = useRef(0);
+            const presidentTimeoutRef = useRef(null);
+            const presidentSpeechOptsRef = useRef(null);
 
             // Charger les paramètres sauvegardés
             useEffect(() => {
@@ -577,10 +582,79 @@
                 }
             }, []);
 
+            const speakPresidentFromChunk = (chunks, startIndex, opts, onFinished) => {
+                const { voiceName, pitch = 1, lang = 'fr-FR', rate = speechRate } = opts;
+                let i = startIndex;
+                const commaMs = commaPause * 1000;
+                const sentenceMs = sentencePause * 1000;
+
+                const next = () => {
+                    if (i >= chunks.length) {
+                        presidentChunkIndexRef.current = 0;
+                        if (typeof onFinished === 'function') onFinished();
+                        return;
+                    }
+                    presidentChunkIndexRef.current = i;
+                    const raw = chunks[i];
+                    const part = raw.trim();
+                    i += 1;
+                    if (!part) { next(); return; }
+
+                    const lastChar = raw.slice(-1);
+                    let pause = 100;
+                    if (lastChar === ',' || lastChar === ';' || lastChar === ':') pause = commaMs;
+                    else if (lastChar === '.' || lastChar === '!' || lastChar === '?') pause = sentenceMs;
+
+                    const u = new SpeechSynthesisUtterance(part);
+                    u.lang = lang;
+                    u.rate = turboMode ? rate * 1.3 : rate;
+                    u.pitch = pitch;
+                    if (voiceName) {
+                        const v = voices.find(vv => vv.name === voiceName);
+                        if (v) u.voice = v;
+                    }
+                    utteranceRef.current = u;
+                    u.onend = () => {
+                        presidentChunkIndexRef.current = i;
+                        presidentTimeoutRef.current = setTimeout(next, pause);
+                    };
+                    window.speechSynthesis.speak(u);
+                };
+                next();
+            };
+
             const speakPresidentLine = (text) => {
+                if (presidentSpeechState === 'playing') {
+                    window.speechSynthesis.cancel();
+                    if (presidentTimeoutRef.current) {
+                        clearTimeout(presidentTimeoutRef.current);
+                        presidentTimeoutRef.current = null;
+                    }
+                    setPresidentSpeechState('paused');
+                    return;
+                }
+                if (presidentSpeechState === 'paused') {
+                    setPresidentSpeechState('playing');
+                    speakPresidentFromChunk(
+                        presidentChunksRef.current,
+                        presidentChunkIndexRef.current,
+                        presidentSpeechOptsRef.current,
+                        () => setPresidentSpeechState('idle')
+                    );
+                    return;
+                }
+                // Démarrage
                 const voiceName = selectedVoices['HOMMES'];
                 const rate = turboMode ? speechRate * 1.3 : speechRate;
-                speakWithPunctuationPauses(text, { voiceName, pitch: 0.75, rate });
+                const opts = { voiceName, pitch: 0.75, rate };
+                const cleanText = text.replace(/\([^()]*\)/g, '').replace(/\s+/g, ' ').trim();
+                if (!cleanText) return;
+                const chunks = cleanText.match(/[^,;.!?:]+[.,;!?:]?/g) || [cleanText];
+                presidentChunksRef.current = chunks;
+                presidentChunkIndexRef.current = 0;
+                presidentSpeechOptsRef.current = opts;
+                setPresidentSpeechState('playing');
+                speakPresidentFromChunk(chunks, 0, opts, () => setPresidentSpeechState('idle'));
             };
 
             // Speak text while inserting pauses based on punctuation.
@@ -830,7 +904,9 @@
 
             const handleNext = () => {
                 setRevealedLine(false);
-                window.speechSynthesis.cancel(); // Arrêter toute lecture en cours
+                setPresidentSpeechState('idle');
+                if (presidentTimeoutRef.current) { clearTimeout(presidentTimeoutRef.current); presidentTimeoutRef.current = null; }
+                window.speechSynthesis.cancel();
                 const totalLines = sections[currentSection].lines.length;
                 if (currentLine < totalLines - 1) {
                     setCurrentLine(prev => prev + 1);
@@ -846,7 +922,9 @@
 
             const handlePrevious = () => {
                 setRevealedLine(false);
-                window.speechSynthesis.cancel(); // Arrêter toute lecture en cours
+                setPresidentSpeechState('idle');
+                if (presidentTimeoutRef.current) { clearTimeout(presidentTimeoutRef.current); presidentTimeoutRef.current = null; }
+                window.speechSynthesis.cancel();
                 if (currentLine > 0) {
                     setCurrentLine(prev => prev - 1);
                 } else if (currentSection > 0) {
@@ -860,6 +938,8 @@
                 setCurrentSection(0);
                 setCurrentLine(0);
                 setRevealedLine(false);
+                setPresidentSpeechState('idle');
+                if (presidentTimeoutRef.current) { clearTimeout(presidentTimeoutRef.current); presidentTimeoutRef.current = null; }
                 window.speechSynthesis.cancel();
             };
 
@@ -895,6 +975,8 @@
                                         setCurrentLine(0);
                                         setIsPlaying(false);
                                         setRevealedLine(false);
+                                        setPresidentSpeechState('idle');
+                                        if (presidentTimeoutRef.current) { clearTimeout(presidentTimeoutRef.current); presidentTimeoutRef.current = null; }
                                         window.speechSynthesis.cancel();
                                     },
                                     className: `px-6 py-3 rounded-lg whitespace-nowrap transition-all mobile-tap-area min-w-[100px] ${
@@ -958,11 +1040,15 @@
                                                 title: showPrompter ? 
                                                     (prompterState === 'hidden' || prompterState === 'hint' ? 'Cliquer pour voir le texte complet' :
                                                      prompterState === 'full' ? 'Cliquer pour écouter' : 'Cliquer pour voir le texte') :
-                                                    'Cliquer pour entendre'
+                                                    (presidentSpeechState === 'playing' ? 'Cliquer pour mettre en pause' :
+                                                     presidentSpeechState === 'paused' ? 'Cliquer pour reprendre' :
+                                                     'Cliquer pour entendre')
                                             }, 
                                                 showPrompter ? getPrompterText(currentLineData.text) : currentLineData.text
                                             ),
                                             !showPrompter && React.createElement('p', { className: "text-green-300/70 text-sm mt-2 italic" }, 
+                                                presidentSpeechState === 'playing' ? '⏸ Cliquez pour mettre en pause' :
+                                                presidentSpeechState === 'paused' ? '▶ Cliquez pour reprendre' :
                                                 '🔊 Cliquez sur le texte pour l\'entendre'
                                             )
                                         ) :
