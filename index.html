@@ -646,8 +646,7 @@
                 }
                 // Démarrage
                 const voiceName = selectedVoices['HOMMES'];
-                const rate = turboMode ? speechRate * 1.3 : speechRate;
-                const opts = { voiceName, pitch: 0.75, rate };
+                const opts = { voiceName, pitch: 0.75, rate: speechRate };
                 const cleanText = text.replace(/\([^()]*\)/g, '').replace(/\s+/g, ' ').trim();
                 if (!cleanText) return;
                 const chunks = cleanText.match(/[^,;.!?:]+[.,;!?:]?/g) || [cleanText];
