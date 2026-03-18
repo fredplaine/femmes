@@ -761,15 +761,12 @@
                 next();
             };
 
-            // Retourne la dernière phrase non-vide d'un texte (sans didascalies)
+            // Retourne les deux dernières phrases non-vides d'un texte (sans didascalies)
             const getLastSentence = (text) => {
                 const clean = text.replace(/\([^()]*\)/g, '').replace(/\s+/g, ' ').trim();
-                const sentences = clean.split(/(?<=[.!?])\s+/);
-                for (let i = sentences.length - 1; i >= 0; i--) {
-                    const s = sentences[i].trim();
-                    if (s) return s;
-                }
-                return clean;
+                const sentences = clean.split(/(?<=[.!?])\s+/).filter(s => s.trim());
+                if (sentences.length <= 2) return clean;
+                return sentences.slice(-2).join(' ');
             };
 
             // Trouve l'index de la ligne qui précède la prochaine réplique du Président
@@ -811,7 +808,7 @@
                             return;
                         } else if (currentSection < sections.length - 1) {
                             const nextCueIdx = findCueLineIndex(currentSection + 1, -1);
-                            if (nextCueIdx !== null) {
+                            if (nextCueIdx !== null && nextCueIdx >= 0) {
                                 setTimeout(() => { setCurrentSection(prev => prev + 1); setCurrentLine(nextCueIdx); }, 400);
                             } else {
                                 setTimeout(() => { setCurrentSection(prev => prev + 1); setCurrentLine(0); }, 400);
