@@ -215,7 +215,7 @@
         { character: "Le Président", text: "une dernière précision avant le premier tour de table. Les actes de torture et de barbarie ne sont pas décrits avec précision dans le code pénal, ce qui nous laisse une grande marge d’interprétation. Dans ce domaine, la jurisprudence permet de… Tout le monde sait ce qu’est la jurisprudence ?", gender: "male", isPresident: true },
         { character: "Le Premier Juré", text: "Oui, moi je sais !", gender: "male", isPresident: false },
         { character: "Le Président", text: "Bien. La jurisprudence permet de…", gender: "male", isPresident: true },
-        { character: "La Jurée Laurence", text: "pardon. Moi, je dirais qu’il me semble que je sais, mais je veux bien qu’on nous réexplique. Juste pour être sûre, je dirais.", gender: "female", isPresident: false },
+        { character: "La Jurée Laurence", text: "Pardon. Moi, je dirais qu’il me semble que je sais, mais je veux bien qu’on nous réexplique. Juste pour être sûre, je dirais.", gender: "female", isPresident: false },
         { character: "Mathilde Collignon", text: "Bon! Écoutez, je vais vous aider, mesdames et messieurs les jurés ! Parce que, franchement, il n’y a rien de compliqué là-dedans. Alors, Mathilde Collignon est coupable. [Bla bla bla … bla bla bla] Allez! Hop, on n’en parle plus. Emballé, c’est pesé. Mathilde Collignon, elle sort libre. Générique de fin et l’audience est levée. Parce que sinon, 20 ans, dont 12 incompressibles, c’est, en fait, pas possible.", gender: "female", isPresident: false },
         { character: "Le Président", text: "La jurisprudence, c’est l’ensemble des décisions déjà rendues par des tribunaux sur un sujet donné. Ça nous éclaire pour prendre une décision. Vous avez compris ?", gender: "male", isPresident: true },
         { character: "La Jurée Laurence", text: "oui. Je crois que je savais déjà, en fait. Je m’appelle, je dirais, Laurence. Laurence Durouie. Je suis agent communal à la ville de Rennes. Je m’occupe des espaces verts. Je ne suis pas jardinière, non. C’est moi qui gère l’équipe. Je n’ai pas d’enfants. Le drame de ma vie. Dieu, je dirais, a préféré que je m’occupe des autres plutôt que de moi. Alors, du coup, je suis bénévole à Sourire d’Enfants. C’est une association qui s’occupe des enfants handicapés. Je ne voulais pas être tirée au sort. Non, ah, ça non! Quand j’ai entendu mon nom, j’ai marché trèèèèès lentement vers le président pour bien laisser le temps aux avocats de dire “ récusée”: ils l’ont pas dit!", gender: "female", isPresident: false },
@@ -943,6 +943,25 @@
                             const nextLine = sections[currentSection].lines[currentLine + 1];
                             return nextLine && nextLine.isPresident;
                         })();
+
+                        // En mode turbo, sauter directement à la cue line sans lire
+                        if (turboMode && !isCueLine) {
+                            const cueIdx = findCueLineIndex(currentSection, currentLine);
+                            if (cueIdx !== null && cueIdx >= 0) {
+                                setCurrentLine(cueIdx);
+                            } else if (currentSection < sections.length - 1) {
+                                const nextCueIdx = findCueLineIndex(currentSection + 1, -1);
+                                if (nextCueIdx !== null && nextCueIdx >= 0) {
+                                    setTimeout(() => { setCurrentSection(prev => prev + 1); setCurrentLine(nextCueIdx); }, 100);
+                                } else {
+                                    setTimeout(() => { setCurrentSection(prev => prev + 1); setCurrentLine(0); }, 100);
+                                }
+                            } else {
+                                setIsPlaying(false);
+                            }
+                            return;
+                        }
+
                         speak(line.text, line.gender, isCueLine);
                     } else {
                         setIsPlaying(false);
