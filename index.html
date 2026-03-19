@@ -856,17 +856,19 @@
 
             // Gestion des gestes tactiles
             const handleTouchStart = (e) => {
-                setTouchStartX(e.touches[0].clientX);
+                setTouchStartX({ x: e.touches[0].clientX, y: e.touches[0].clientY });
             };
 
             const handleTouchEnd = (e) => {
                 if (touchStartX === null) return;
                 
                 const touchEndX = e.changedTouches[0].clientX;
-                const diffX = touchStartX - touchEndX;
+                const touchEndY = e.changedTouches[0].clientY;
+                const diffX = touchStartX.x - touchEndX;
+                const diffY = touchStartX.y - touchEndY;
                 
-                // Seuil pour détecter un swipe
-                if (Math.abs(diffX) > 50) {
+                // Swipe valide : > 80px horizontal ET plus horizontal que vertical (ratio 2:1)
+                if (Math.abs(diffX) > 80 && Math.abs(diffX) > Math.abs(diffY) * 2) {
                     if (diffX > 0) {
                         // Swipe gauche -> suivant
                         handleNext();
