@@ -946,33 +946,18 @@
                 if (isPlaying) {
                     const line = sections[currentSection].lines[currentLine];
                     if (!line.isPresident) {
-                        // En mode turbo, détecter si c'est la cue line
                         const sectionLines = sections[currentSection].lines;
-                        const isCueLine = turboMode && (() => {
-                            const nextLine = sectionLines[currentLine + 1];
-                            if (nextLine && nextLine.isPresident) return true;
-                            // Aussi cue si plus aucune réplique du Président n'existe dans la section
-                            for (let i = currentLine + 1; i < sectionLines.length; i++) {
-                                if (sectionLines[i].isPresident) return false;
-                            }
-                            return true;
-                        })();
+                        // isCueLine = STRICTEMENT la ligne juste avant le Président
+                        const isCueLine = turboMode && !!sectionLines[currentLine + 1]?.isPresident;
 
-                        // En mode turbo, sauter directement à la cue line sans lire
                         if (turboMode && !isCueLine) {
                             const cueIdx = findCueLineIndex(currentSection, currentLine);
                             if (cueIdx !== null && cueIdx >= 0) {
-                                // Juste sauter, sans parler. Le prochain useEffect appellera speak() avec isCueLine=true
+                                // Sauter à la cue line, le prochain useEffect appellera speak() avec isCueLine=true
                                 setCurrentLine(cueIdx);
                             } else {
-                                // Plus de Président dans la section : sauter à la dernière réplique non-Président
-                                let lastNonPresIdx = -1;
-                                for (let i = sectionLines.length - 1; i > currentLine; i--) {
-                                    if (!sectionLines[i].isPresident) { lastNonPresIdx = i; break; }
-                                }
-                                if (lastNonPresIdx > currentLine) {
-                                    setCurrentLine(lastNonPresIdx);
-                                } else if (currentSection < sections.length - 1) {
+                                // Plus de Président dans la section → sauter directement à la section suivante
+                                if (currentSection < sections.length - 1) {
                                     const nextCueIdx = findCueLineIndex(currentSection + 1, -1);
                                     if (nextCueIdx !== null && nextCueIdx >= 0) {
                                         setCurrentSection(prev => prev + 1);
