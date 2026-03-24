@@ -962,10 +962,8 @@
                         if (turboMode && !isCueLine) {
                             const cueIdx = findCueLineIndex(currentSection, currentLine);
                             if (cueIdx !== null && cueIdx >= 0) {
-                                // Parler de la cue line directement
-                                const cueLineData = sectionLines[cueIdx];
-                                speak(cueLineData.text, cueLineData.gender, true);
-                                setTimeout(() => setCurrentLine(cueIdx), 50);
+                                // Juste sauter, sans parler. Le prochain useEffect appellera speak() avec isCueLine=true
+                                setCurrentLine(cueIdx);
                             } else {
                                 // Plus de Président dans la section : sauter à la dernière réplique non-Président
                                 let lastNonPresIdx = -1;
@@ -973,17 +971,15 @@
                                     if (!sectionLines[i].isPresident) { lastNonPresIdx = i; break; }
                                 }
                                 if (lastNonPresIdx > currentLine) {
-                                    const cueLineData = sectionLines[lastNonPresIdx];
-                                    speak(cueLineData.text, cueLineData.gender, true);
-                                    setTimeout(() => setCurrentLine(lastNonPresIdx), 50);
+                                    setCurrentLine(lastNonPresIdx);
                                 } else if (currentSection < sections.length - 1) {
                                     const nextCueIdx = findCueLineIndex(currentSection + 1, -1);
                                     if (nextCueIdx !== null && nextCueIdx >= 0) {
-                                        const cueLineData = sections[currentSection + 1].lines[nextCueIdx];
-                                        speak(cueLineData.text, cueLineData.gender, true);
-                                        setTimeout(() => { setCurrentSection(prev => prev + 1); setCurrentLine(nextCueIdx); }, 50);
+                                        setCurrentSection(prev => prev + 1);
+                                        setCurrentLine(nextCueIdx);
                                     } else {
-                                        setTimeout(() => { setCurrentSection(prev => prev + 1); setCurrentLine(0); }, 100);
+                                        setCurrentSection(prev => prev + 1);
+                                        setCurrentLine(0);
                                     }
                                 } else {
                                     setIsPlaying(false);
