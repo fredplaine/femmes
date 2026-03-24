@@ -962,7 +962,10 @@
                         if (turboMode && !isCueLine) {
                             const cueIdx = findCueLineIndex(currentSection, currentLine);
                             if (cueIdx !== null && cueIdx >= 0) {
-                                setCurrentLine(cueIdx);
+                                // Parler de la cue line directement
+                                const cueLineData = sectionLines[cueIdx];
+                                speak(cueLineData.text, cueLineData.gender, true);
+                                setTimeout(() => setCurrentLine(cueIdx), 50);
                             } else {
                                 // Plus de Président dans la section : sauter à la dernière réplique non-Président
                                 let lastNonPresIdx = -1;
@@ -970,11 +973,15 @@
                                     if (!sectionLines[i].isPresident) { lastNonPresIdx = i; break; }
                                 }
                                 if (lastNonPresIdx > currentLine) {
-                                    setCurrentLine(lastNonPresIdx);
+                                    const cueLineData = sectionLines[lastNonPresIdx];
+                                    speak(cueLineData.text, cueLineData.gender, true);
+                                    setTimeout(() => setCurrentLine(lastNonPresIdx), 50);
                                 } else if (currentSection < sections.length - 1) {
                                     const nextCueIdx = findCueLineIndex(currentSection + 1, -1);
                                     if (nextCueIdx !== null && nextCueIdx >= 0) {
-                                        setTimeout(() => { setCurrentSection(prev => prev + 1); setCurrentLine(nextCueIdx); }, 100);
+                                        const cueLineData = sections[currentSection + 1].lines[nextCueIdx];
+                                        speak(cueLineData.text, cueLineData.gender, true);
+                                        setTimeout(() => { setCurrentSection(prev => prev + 1); setCurrentLine(nextCueIdx); }, 50);
                                     } else {
                                         setTimeout(() => { setCurrentSection(prev => prev + 1); setCurrentLine(0); }, 100);
                                     }
