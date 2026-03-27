@@ -109,6 +109,7 @@
             const presidentChunkIndexRef = useRef(0);
             const presidentTimeoutRef = useRef(null);
             const presidentSpeechOptsRef = useRef(null);
+            const presidentClickTimerRef = useRef(null);
 
             // Charger les paramètres sauvegardés
             useEffect(() => {
@@ -656,6 +657,54 @@
                 speakPresidentFromChunk(chunks, 0, opts, () => setPresidentSpeechState('idle'));
             };
 
+            const handlePresidentClick = () => {
+                const text = currentLineData.text;
+                const isRevealed = revealedLine;
+                const speechState = presidentSpeechState;
+
+                if (presidentClickTimerRef.current) {
+                    // Double-click rapide : stoppe la lecture, retour standby (texte visible)
+                    clearTimeout(presidentClickTimerRef.current);
+                    presidentClickTimerRef.current = null;
+                    window.speechSynthesis.cancel();
+                    if (presidentTimeoutRef.current) { clearTimeout(presidentTimeoutRef.current); presidentTimeoutRef.current = null; }
+                    presidentChunkIndexRef.current = 0;
+                    setPresidentSpeechState('idle');
+                    return;
+                }
+                presidentClickTimerRef.current = setTimeout(() => {
+                    presidentClickTimerRef.current = null;
+                    if (!isRevealed) setRevealedLine(true);
+                    if (speechState === 'playing') {
+                        // Pause
+                        window.speechSynthesis.cancel();
+                        if (presidentTimeoutRef.current) { clearTimeout(presidentTimeoutRef.current); presidentTimeoutRef.current = null; }
+                        setPresidentSpeechState('paused');
+                    } else if (speechState === 'paused') {
+                        // Reprendre
+                        setPresidentSpeechState('playing');
+                        speakPresidentFromChunk(
+                            presidentChunksRef.current,
+                            presidentChunkIndexRef.current,
+                            presidentSpeechOptsRef.current,
+                            () => setPresidentSpeechState('idle')
+                        );
+                    } else {
+                        // Idle : démarrer
+                        const voiceName = selectedVoices['HOMMES'];
+                        const opts = { voiceName, pitch: 0.75, rate: speechRate };
+                        const cleanText = text.replace(/\([^()]*\)/g, '').replace(/\s+/g, ' ').trim();
+                        if (!cleanText) return;
+                        const chunks = cleanText.match(/[^,;.!?:]+[.,;!?:]?/g) || [cleanText];
+                        presidentChunksRef.current = chunks;
+                        presidentChunkIndexRef.current = 0;
+                        presidentSpeechOptsRef.current = opts;
+                        setPresidentSpeechState('playing');
+                        speakPresidentFromChunk(chunks, 0, opts, () => setPresidentSpeechState('idle'));
+                    }
+                }, 280);
+            };
+
             // Speak text while inserting pauses based on punctuation.
             // Comma/semicolon -> commaPause seconds, period/!/? -> sentencePause seconds
             // Fonctions pour les marque-pages
@@ -986,6 +1035,7 @@
                 setRevealedLine(false);
                 setPresidentSpeechState('idle');
                 if (presidentTimeoutRef.current) { clearTimeout(presidentTimeoutRef.current); presidentTimeoutRef.current = null; }
+                if (presidentClickTimerRef.current) { clearTimeout(presidentClickTimerRef.current); presidentClickTimerRef.current = null; }
                 window.speechSynthesis.cancel();
                 const totalLines = sections[currentSection].lines.length;
                 if (currentLine < totalLines - 1) {
@@ -1004,6 +1054,7 @@
                 setRevealedLine(false);
                 setPresidentSpeechState('idle');
                 if (presidentTimeoutRef.current) { clearTimeout(presidentTimeoutRef.current); presidentTimeoutRef.current = null; }
+                if (presidentClickTimerRef.current) { clearTimeout(presidentClickTimerRef.current); presidentClickTimerRef.current = null; }
                 window.speechSynthesis.cancel();
                 if (currentLine > 0) {
                     setCurrentLine(prev => prev - 1);
@@ -1020,6 +1071,7 @@
                 setRevealedLine(false);
                 setPresidentSpeechState('idle');
                 if (presidentTimeoutRef.current) { clearTimeout(presidentTimeoutRef.current); presidentTimeoutRef.current = null; }
+                if (presidentClickTimerRef.current) { clearTimeout(presidentClickTimerRef.current); presidentClickTimerRef.current = null; }
                 window.speechSynthesis.cancel();
             };
 
@@ -1116,13 +1168,13 @@
                                                 className: `cursor-pointer transition-colors mobile-tap-area ${
                                                     prompterState === 'audio' ? 'text-green-300' : 'text-white hover:text-green-200'
                                                 }`,
-                                                onClick: showPrompter ? handlePrompterClick : () => speakPresidentLine(currentLineData.text),
+                                                onClick: showPrompter ? handlePrompterClick : handlePresidentClick,
                                                 title: showPrompter ? 
                                                     (prompterState === 'hidden' || prompterState === 'hint' ? 'Cliquer pour voir le texte complet' :
                                                      prompterState === 'full' ? 'Cliquer pour écouter' : 'Cliquer pour voir le texte') :
                                                     (presidentSpeechState === 'playing' ? 'Cliquer pour mettre en pause' :
                                                      presidentSpeechState === 'paused' ? 'Cliquer pour reprendre' :
-                                                     'Cliquer pour entendre')
+                                                     'Double-clic pour réinitialiser')
                                             }, 
                                                 showPrompter ? getPrompterText(currentLineData.text) : currentLineData.text
                                             ),
@@ -1134,7 +1186,7 @@
                                         ) :
                                         React.createElement('p', { 
                                             className: "text-green-300/50 italic text-center py-8 mobile-tap-area",
-                                            onClick: () => setRevealedLine(true)
+                                            onClick: handlePresidentClick
                                         }, 'Cliquez pour révéler votre texte')
                                 ) :
                                 React.createElement('p', { className: "text-gray-200 text-display" }, currentLineData.text)
