@@ -361,10 +361,77 @@ La plupart des données sont sauvegardées en `localStorage` navigateur :
 
 ---
 
-## À venir (optionnel)
+## À venir (To Do)
 
-- Sauvegarde position actuelle (persistant)
-- Export/Import de configuration
-- Thèmes sombres/clairs
-- Raccourcis clavier
-- Mode révision (masquer texte, tester mémoire)
+### 🔴 **Haute priorité** (à tester en conditions réelles)
+
+#### 1. **Minuteur/Chronomètre de Filage** ⏱️
+- **Description** : Affiche durée totale du filage en cours (HH:MM:SS)
+- **Placement** : Panneau orange Mode Filage (à côté des paramètres)
+- **Utilité** : vérifier durée scène, comparer versions précédentes, ajuster tempo
+- **Technique** : useEffect + setInterval (update chaque seconde)
+- **Optionnel** : son/vibration de fin filage
+
+#### 2. **Mode Lecture Rapide** ⚡📖
+- **Description** : Bouton pour lire tout texte d'une scène sans pauses (vitesse ≥1.5×)
+- **Placement** : Panneau réglages (🔊) ou bouton dédié barre contrôle
+- **Utilité** : preview complet rapide, révision pré-filage
+- **Technique** : toggle bool + override pauses (0ms) + vitesse minimale en `speakWithPunctuationPauses()`
+
+#### 3. **Enregistrement Audio Personnel** 🎤 ✅ Implémenté
+- **Description** : Enregistrer votre voix pendant vos répliques en Mode Filage pour auto-critique
+- **Cas d'usage** : Mode Filage actif + "🎤 Enregistrer" activé → enregistre uniquement vos répliques (une par une)
+- **Fonctionnalités** :
+  - 🎤 Toggle **"Enregistrer"** dans le panneau Filage (orange) pour activer le mode
+  - **🎤 Rec** / **⏹ Stop** : démarre/arrête l'enregistrement sur la réplique actuelle
+  - **▶ Écouter** : rejoue votre enregistrement pour cette réplique
+  - **🗑** : efface l'enregistrement de la réplique
+  - Badge **REC** rouge clignotant quand enregistrement actif
+  - Compteur d'enregistrements dans le panneau Filage (ex: "3 enreg.")
+- **Technique** : `MediaRecorder API` + `Blob URLs` (audio/webm), clé par réplique (`section_ligne`)
+- **Limitation** : enregistrements perdus au rechargement (stockage mémoire, non persisté en localStorage)
+- **Bonus futur** : export WAV/MP3 + rejouer filage complet avec vos enregistrements synchronisés
+
+### 📋 **Moyen terme**
+
+- Sauvegarde position actuelle (Section/Ligne restaurée au rechargement)
+- Raccourcis clavier (Space=Suivant, Shift+Space=Précédent, R=Reset, T=Turbo, F=Filage, P=Souffleur)
+- Mode révision (texte blanc sur blanc, self-test mémoire, compteur révélations)
+- Recherche/Jump to (chercher texte, aller ligne X)
+- Notes personnelles par réplique (📝 mini-éditeur, localStorage)
+- Presets params (configs nommées sauvegardées : "Travail rapide", "Intense", "Loisir")
+
+### 💭 **Idées créatives**
+- Historique filages (stats durée/date, progression sur graphique)
+- Souffleur inversé (vous dites autres répliques, app dit les vôtres)
+- Thèmes dark/light (☀️/🌙 toggle + Tailwind dark classes)
+- Comparaison versions script (deux versions côte à côte, diffs surlighs)
+
+#### **IDÉE FOLLE: Vérification d'Accuracy Vocale** 🎤✅
+
+**Concept** : L'app écoute votre voix lors du filage et vérifie l'accuracy (exactitude) de votre réplique.
+
+**Workflow**:
+1. Pendant filage, quand c'est à vous (ligne Président) : au lieu de silence, un bouton 🎤 Record apparaît
+2. Vous cliquez, vous dites la réplique
+3. L'app utilise Web Speech API (SpeechRecognition) pour transcrire votre voix
+4. Compare texte reconnu vs texte exact du script (distance Levenshtein)
+5. Affiche % accuracy + highlight des mots mal dits (diff visuel)
+
+**Cas d'usage** :
+- Auto-critique : enregistrer, voir où on perd des mots
+- Progression : tracker % accuracy par session (localStorage)
+- Mémorisation : identifier phrases problématiques, les réviser
+
+**Variantes** :
+- Mode strict (100% ou rien) vs progressive (% tolerance)
+- Word-by-word scoring vs phrase globale
+- Phonetic similarity (ignorer accents régionaux)
+
+**Challenges techniques** :
+- SpeechRecognition (TTS vs. STT différent) nécessite internet
+- Homophones français (tout/tu, ce/se, où/ou) → faux positifs
+- Accents régionaux → besoin calibration
+- Solution : télécharger modèle ML offline (avancé)
+
+**Impact** : Très haut — game-changer pour coaching/évaluation

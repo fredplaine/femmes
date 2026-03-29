@@ -118,6 +118,15 @@
             const filageGenRef = useRef(0);
             const filageAutoAdvanceRef = useRef(true);
             const [filageProgress, setFilageProgress] = useState(0);
+            // Mode Enregistrement
+            const [recordingMode, setRecordingMode] = useState(false);
+            const [isRecording, setIsRecording] = useState(false);
+            const [recordings, setRecordings] = useState({});
+            const [playingRecording, setPlayingRecording] = useState(null);
+            const mediaRecorderRef = useRef(null);
+            const recordingChunksRef = useRef([]);
+            const audioPlayerRef = useRef(null);
+            const recordingModeRef = useRef(false);
 
             // Charger les paramètres sauvegardés
             useEffect(() => {
@@ -915,6 +924,63 @@
                 return text;
             };
 
+            // Enregistrement audio (répliques du Président uniquement)
+            const startRecording = async () => {
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    const mr = new MediaRecorder(stream);
+                    const recKey = `${currentSection}_${currentLine}`;
+                    recordingChunksRef.current = [];
+                    mr.ondataavailable = e => { if (e.data.size > 0) recordingChunksRef.current.push(e.data); };
+                    mr.onstop = () => {
+                        const blob = new Blob(recordingChunksRef.current, { type: 'audio/webm' });
+                        const url = URL.createObjectURL(blob);
+                        setRecordings(prev => {
+                            if (prev[recKey]) URL.revokeObjectURL(prev[recKey]);
+                            return { ...prev, [recKey]: url };
+                        });
+                        stream.getTracks().forEach(t => t.stop());
+                        setIsRecording(false);
+                    };
+                    mr.start();
+                    mediaRecorderRef.current = mr;
+                    setIsRecording(true);
+                } catch (err) {
+                    alert('Accès au microphone refusé. Autorisez le micro dans les paramètres du navigateur.');
+                }
+            };
+
+            const stopRecordingNow = () => {
+                if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+                    mediaRecorderRef.current.stop();
+                } else {
+                    setIsRecording(false);
+                }
+            };
+
+            const stopAudioPlayback = () => {
+                if (audioPlayerRef.current) { audioPlayerRef.current.pause(); audioPlayerRef.current = null; }
+                setPlayingRecording(null);
+            };
+
+            const playRecordingForKey = (key) => {
+                if (playingRecording === key) { stopAudioPlayback(); return; }
+                stopAudioPlayback();
+                const url = recordings[key];
+                if (!url) return;
+                const audio = new Audio(url);
+                audioPlayerRef.current = audio;
+                setPlayingRecording(key);
+                audio.onended = () => { setPlayingRecording(null); audioPlayerRef.current = null; };
+                audio.play();
+            };
+
+            const deleteRecordingForKey = (key) => {
+                if (playingRecording === key) stopAudioPlayback();
+                if (recordings[key]) URL.revokeObjectURL(recordings[key]);
+                setRecordings(prev => { const n = {...prev}; delete n[key]; return n; });
+            };
+
             // Gestion des gestes tactiles
             const handleTouchStart = (e) => {
                 setTouchStartX({ x: e.touches[0].clientX, y: e.touches[0].clientY });
@@ -1048,6 +1114,14 @@
             }, [currentLine, isPlaying, currentSection, turboMode, filageMode]);
 
             useEffect(() => { filageAutoAdvanceRef.current = filageAutoAdvance; }, [filageAutoAdvance]);
+            useEffect(() => {
+                recordingModeRef.current = recordingMode;
+                if (!recordingMode) {
+                    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') mediaRecorderRef.current.stop();
+                    if (audioPlayerRef.current) { audioPlayerRef.current.pause(); audioPlayerRef.current = null; }
+                    setPlayingRecording(null);
+                }
+            }, [recordingMode]);
 
             useEffect(() => {
                 if (!filageMode) return;
@@ -1092,7 +1166,10 @@
                 const vol = line.isPresident ? 0 : 1;
                 // En mode Turbo+Filage : ne lire que les 2 dernières phrases de la cue line
                 const textToSpeak = (turboMode && !line.isPresident) ? getLastSentence(line.text) : line.text;
-                if (line.isPresident) setFilageProgress(0);
+                if (line.isPresident) {
+                    setFilageProgress(0);
+                    if (recordingModeRef.current) startRecording();
+                }
                 speakWithPunctuationPauses(
                     textToSpeak,
                     { voiceName, pitch, rate: effectiveRate, volume: vol,
@@ -1116,12 +1193,15 @@
                 return () => {
                     window.speechSynthesis.cancel();
                     if (filageTimeoutRef.current) { clearTimeout(filageTimeoutRef.current); filageTimeoutRef.current = null; }
+                    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') mediaRecorderRef.current.stop();
                 };
             }, [filageMode, currentSection, currentLine, turboMode]);
 
             const handleNext = () => {
                 setFilageMode(false);
                 if (filageTimeoutRef.current) { clearTimeout(filageTimeoutRef.current); filageTimeoutRef.current = null; }
+                if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') mediaRecorderRef.current.stop();
+                if (audioPlayerRef.current) { audioPlayerRef.current.pause(); audioPlayerRef.current = null; setPlayingRecording(null); }
                 setRevealedLine(false);
                 setPresidentSpeechState('idle');
                 if (presidentTimeoutRef.current) { clearTimeout(presidentTimeoutRef.current); presidentTimeoutRef.current = null; }
@@ -1143,6 +1223,8 @@
             const handlePrevious = () => {
                 setFilageMode(false);
                 if (filageTimeoutRef.current) { clearTimeout(filageTimeoutRef.current); filageTimeoutRef.current = null; }
+                if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') mediaRecorderRef.current.stop();
+                if (audioPlayerRef.current) { audioPlayerRef.current.pause(); audioPlayerRef.current = null; setPlayingRecording(null); }
                 setRevealedLine(false);
                 setPresidentSpeechState('idle');
                 if (presidentTimeoutRef.current) { clearTimeout(presidentTimeoutRef.current); presidentTimeoutRef.current = null; }
@@ -1159,6 +1241,8 @@
             const handleReset = () => {
                 setFilageMode(false);
                 if (filageTimeoutRef.current) { clearTimeout(filageTimeoutRef.current); filageTimeoutRef.current = null; }
+                if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') mediaRecorderRef.current.stop();
+                if (audioPlayerRef.current) { audioPlayerRef.current.pause(); audioPlayerRef.current = null; setPlayingRecording(null); }
                 setIsPlaying(false);
                 setCurrentSection(0);
                 setCurrentLine(0);
@@ -1199,6 +1283,8 @@
                                     onClick: () => {
                                         setFilageMode(false);
                                         if (filageTimeoutRef.current) { clearTimeout(filageTimeoutRef.current); filageTimeoutRef.current = null; }
+                                        if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') mediaRecorderRef.current.stop();
+                                        if (audioPlayerRef.current) { audioPlayerRef.current.pause(); audioPlayerRef.current = null; setPlayingRecording(null); }
                                         setCurrentSection(idx);
                                         setCurrentLine(0);
                                         setIsPlaying(false);
@@ -1256,7 +1342,14 @@
                             React.createElement('button', {
                                 onClick: () => setFilageAutoAdvance(!filageAutoAdvance),
                                 className: `px-3 py-1 rounded text-sm transition-all ${filageAutoAdvance ? 'bg-green-600 hover:bg-green-500' : 'bg-slate-600 hover:bg-slate-500'}`
-                            }, filageAutoAdvance ? '▶ Auto ON' : '⏸ Auto OFF')
+                            }, filageAutoAdvance ? '▶ Auto ON' : '⏸ Auto OFF'),
+                            React.createElement('button', {
+                                onClick: () => setRecordingMode(!recordingMode),
+                                className: `px-3 py-1 rounded text-sm transition-all ${recordingMode ? 'bg-red-700 hover:bg-red-600' : 'bg-slate-600 hover:bg-slate-500'}`
+                            }, recordingMode ? '🎤 Rec ON' : '🎤 Enregistrer'),
+                            recordingMode && Object.keys(recordings).length > 0 && React.createElement('span', {
+                                className: "text-red-300 text-xs"
+                            }, `${Object.keys(recordings).length} enreg.`)
                         )
                     ),
                     React.createElement('div', { className: "bg-slate-800/50 backdrop-blur rounded-2xl p-6 mb-6 min-h-[300px] border border-red-500/20" },
@@ -1274,9 +1367,13 @@
                                     className: "bg-green-900/30 border-l-4 border-green-500 p-4 rounded"
                                 },
                                     React.createElement('div', { className: "flex justify-between items-center mb-2" },
-                                        React.createElement('p', { className: "text-green-100 font-semibold" }, '🎭 VOTRE RÉPLIQUE')
+                                        React.createElement('p', { className: "text-green-100 font-semibold" }, '🎭 VOTRE RÉPLIQUE'),
+                                        isRecording && React.createElement('span', { className: "flex items-center gap-1 text-red-400 text-sm animate-pulse" },
+                                            React.createElement('span', { className: "w-2 h-2 rounded-full bg-red-500 inline-block" }),
+                                            'REC'
+                                        )
                                     ),
-                                    React.createElement('div', { className: "text-center py-6" },
+                                    React.createElement('div', { className: "text-center py-4" },
                                         React.createElement('p', { className: "text-4xl mb-3" }, '🎭'),
                                         React.createElement('p', { className: "text-green-300/80 italic text-xl mb-4" }, 'À vous de jouer !'),
                                         React.createElement('div', { className: "w-full bg-slate-700 rounded-full h-3 mb-1" },
@@ -1286,6 +1383,24 @@
                                             })
                                         ),
                                         React.createElement('p', { className: "text-green-400/70 text-sm mt-1" }, `${filageProgress}%`)
+                                    ),
+                                    recordingMode && React.createElement('div', { className: "flex items-center justify-center gap-2 mt-2 pt-3 border-t border-green-500/20" },
+                                        React.createElement('button', {
+                                            onClick: isRecording ? stopRecordingNow : startRecording,
+                                            className: `flex items-center gap-1 px-3 py-2 rounded-lg text-sm font-semibold transition-all ${
+                                                isRecording ? 'bg-red-600 shadow-lg shadow-red-500/30 animate-pulse' : 'bg-slate-600 hover:bg-slate-500'
+                                            }`
+                                        }, isRecording ? '⏹ Stop' : '🎤 Rec'),
+                                        recordings[`${currentSection}_${currentLine}`] && React.createElement('button', {
+                                            onClick: () => playRecordingForKey(`${currentSection}_${currentLine}`),
+                                            className: `flex items-center gap-1 px-3 py-2 rounded-lg text-sm transition-all ${
+                                                playingRecording === `${currentSection}_${currentLine}` ? 'bg-blue-500 hover:bg-blue-400' : 'bg-slate-600 hover:bg-slate-500'
+                                            }`
+                                        }, playingRecording === `${currentSection}_${currentLine}` ? '⏹ Stop' : '▶ Écouter'),
+                                        recordings[`${currentSection}_${currentLine}`] && React.createElement('button', {
+                                            onClick: () => deleteRecordingForKey(`${currentSection}_${currentLine}`),
+                                            className: "px-2 py-2 rounded-lg text-sm bg-slate-700 hover:bg-red-800 text-red-400 transition-all"
+                                        }, '🗑')
                                     )
                                 ) :
                             currentLineData.isPresident ? 
@@ -1327,6 +1442,19 @@
                                                 presidentSpeechState === 'playing' ? '⏸ Cliquez pour mettre en pause' :
                                                 presidentSpeechState === 'paused' ? '▶ Cliquez pour reprendre' :
                                                 '🔊 Cliquez sur le texte pour l\'entendre'
+                                            ),
+                                            recordings[`${currentSection}_${currentLine}`] && React.createElement('div', { className: "flex items-center gap-2 mt-3 pt-2 border-t border-green-500/20" },
+                                                React.createElement('span', { className: "text-xs text-green-400" }, '🎙 Enreg. :'),
+                                                React.createElement('button', {
+                                                    onClick: () => playRecordingForKey(`${currentSection}_${currentLine}`),
+                                                    className: `flex items-center gap-1 px-3 py-1 rounded text-sm transition-all ${
+                                                        playingRecording === `${currentSection}_${currentLine}` ? 'bg-blue-500 hover:bg-blue-400' : 'bg-slate-600 hover:bg-slate-500'
+                                                    }`
+                                                }, playingRecording === `${currentSection}_${currentLine}` ? '⏹ Stop' : '▶ Écouter'),
+                                                React.createElement('button', {
+                                                    onClick: () => deleteRecordingForKey(`${currentSection}_${currentLine}`),
+                                                    className: "px-2 py-1 rounded text-sm bg-slate-700 hover:bg-red-800 text-red-400 transition-all"
+                                                }, '🗑')
                                             )
                                         ) :
                                         React.createElement('p', { 
