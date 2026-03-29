@@ -117,6 +117,7 @@
             const filageTimeoutRef = useRef(null);
             const filageGenRef = useRef(0);
             const filageAutoAdvanceRef = useRef(true);
+            const [filageProgress, setFilageProgress] = useState(0);
 
             // Charger les paramètres sauvegardés
             useEffect(() => {
@@ -182,7 +183,7 @@
       title: "A 1",
       lines: [
         { character: "Brouhaha en voix off", text: "20 ans - 20 ans - 20 ans", gender: "male", isPresident: false },
-        { character: "Mathilde Collignon", text: "20 ans ! L’avocat général, du haut de son estrade, a réclamé 20 ans.Et comme si ça ne suffisait pas, il a ajouté “assorti d’une peine de sûreté de 12 ans”", gender: "female", isPresident: false },
+        { character: "Mathilde Collignon", text: "20 ans ! L’avocat général, du haut de son estrade, a réclamé 20 ans. Et comme si ça ne suffisait pas, il a ajouté “assorti d’une peine de sûreté de 12 ans”", gender: "female", isPresident: false },
         { character: "L’ Avocat Général", text: "Ce procès est avant tout le procès de la barbarie.", gender: "male", isPresident: false },
         { character: "Mathilde Collignon", text: "20 ans ! Son réquisitoire a peut-être duré, quoi, 45 minutes ? Ça fait combien de jours de prison par minute, ça ? Alors, 20 fois 365, ça fait… 7 300 jours. “Mathilde, pour réussir ta vie, il faut savoir compter vite et juste.” Il serait content, mon père. J’ai bien réussi ma vie. Alors, 7 300 jours divisés par 45 minutes, ça fait à peu près…160 jours. Ah oui, un peu plus de 5 mois de prison par minute de réquisitoire. Ça va, c’est bien payé !", gender: "female", isPresident: false },
         { character: "L’ Avocat Général", text: "Cette femme n’appartient plus à notre civilisation. Elle s’en est exclue.", gender: "male", isPresident: false },
@@ -194,12 +195,12 @@
         { character: "Le Président", text: "Madame Mathilde Collignon, avez-vous quelque chose à ajouter pour votre défense ?", gender: "male", isPresident: true },
         { character: "Mathilde Collignon", text: "Oui! Monsieur le Président, je vous remercie. Mesdames et messieurs les jurés, j’aurais dû avoir foi en la justice de mon pays au lieu de me faire réparation moi-même. [Et je coupe le son ... et je remets le son] J’ai été agressée, alors j’ai réagi.Mal, ça, oui, je le reconnais.Vous pouvez me condamner ; j’y suis prête. Mais en me condamnant, vous condamnez aussi Constance et Julie. Ce sont mes deux filles. Elles grandiront sans leur mère. Je vous remercie.", gender: "female", isPresident: false },
         { character: "Le Président", text: "Mesdames et messieurs les jurés, nous allons nous rendre dans la salle des délibérations. L’audience est suspendue.", gender: "male", isPresident: true },
-        { character: "Mathilde Collignon", text: "on a tous une idée déformée de la justice.Mais on n’est pas dans un film, là. Non,là, on est dans la vie. On est dans MA vie. Et puis, on n’est pas en Amérique, on est en France. [Et je coupe le son ... et je remets le son]. Ils ont du mal à se sentir légitimes. Ils se sentent écrasés par le décorum et ils ne se permettent pas de contredire les magistrats", gender: "female", isPresident: false },
+        { character: "Mathilde Collignon", text: "On a tous une idée déformée de la justice.Mais on n’est pas dans un film, là. Non,là, on est dans la vie. On est dans MA vie. Et puis, on n’est pas en Amérique, on est en France. [Et je coupe le son ... et je remets le son]. Ils ont du mal à se sentir légitimes. Ils se sentent écrasés par le décorum et ils ne se permettent pas de contredire les magistrats", gender: "female", isPresident: false },
         { character: "Le Président", text: "Mesdames et Messieurs les jurés, vous venez d’assister à l’audience. Votre devoir, maintenant, est de livrer votre intime conviction.", gender: "male", isPresident: true },
         { character: "Mathilde Collignon", text: "Les deux avocats de la partie civile savent bien que le président et ses deux assesseurs auront à cœur de faire respecter le droit. Ils feront pencher la balance en faveur de la culpabilité. Il leur suffit de convaincre trois jurés sur six, et je serai condamnée. C’est une formalité.", gender: "female", isPresident: false },
         { character: "Le Président", text: "Monsieur le premier juré,", gender: "male", isPresident: true },
         { character: "Le Premier Juré", text: "Oui ?", gender: "male", isPresident: false },
-        { character: "Le Président", text: "venez prendre place à mes côtés, je vous prie. Les autres, vous pouvez vous installer où vous voulez.", gender: "male", isPresident: true },
+        { character: "Le Président", text: "Venez prendre place à mes côtés, je vous prie. Les autres, vous pouvez vous installer où vous voulez.", gender: "male", isPresident: true },
         { character: "Le Premier Juré", text: "Est-ce que je dois présider la séance ?", gender: "male", isPresident: false },
         { character: "Le Président", text: "Ah, non non non! Vous regardez trop la télé.", gender: "male", isPresident: true },
         { character: "Le Premier Juré", text: "Pardon, je savais pas.", gender: "male", isPresident: false }
@@ -761,7 +762,7 @@
             };
 
             const speakWithPunctuationPauses = (text, opts = {}, onFinished) => {
-                const { voiceName, pitch = 1, lang = 'fr-FR', rate = speechRate, commaPause: optComma, sentencePause: optSentence, volume = 1 } = opts;
+                const { voiceName, pitch = 1, lang = 'fr-FR', rate = speechRate, commaPause: optComma, sentencePause: optSentence, volume = 1, onProgress } = opts;
                 window.speechSynthesis.cancel();
 
                 // Supprimer le texte entre parenthèses (didascalies) - gère les parenthèses imbriquées
@@ -781,6 +782,7 @@
 
                 const next = () => {
                     if (i >= parts.length) {
+                        if (typeof onProgress === 'function') onProgress(parts.length, parts.length);
                         if (typeof onFinished === 'function') onFinished();
                         return;
                     }
@@ -790,6 +792,8 @@
                     i += 1;
 
                     if (!part) return next();
+
+                    if (typeof onProgress === 'function') onProgress(i, parts.length);
 
                     const lastChar = part.slice(-1);
                     let pause = 100; // default short gap
@@ -1051,14 +1055,48 @@
                 window.speechSynthesis.cancel();
                 if (filageTimeoutRef.current) { clearTimeout(filageTimeoutRef.current); filageTimeoutRef.current = null; }
                 const line = sections[currentSection].lines[currentLine];
+                const sectionLines = sections[currentSection].lines;
+
+                // En mode Turbo+Filage : sauter les lignes non-cue comme en Turbo normal
+                if (turboMode && !line.isPresident) {
+                    const nextSectionStartsWithPresident = currentLine === sectionLines.length - 1
+                        && currentSection < sections.length - 1
+                        && sections[currentSection + 1].lines[0]?.isPresident;
+                    const isCueLine = !!sectionLines[currentLine + 1]?.isPresident || nextSectionStartsWithPresident;
+
+                    if (!isCueLine) {
+                        // Pas une cue line : sauter directement à la cue line suivante
+                        const cueIdx = findCueLineIndex(currentSection, currentLine);
+                        if (cueIdx !== null && cueIdx >= 0) {
+                            setCurrentLine(cueIdx);
+                        } else if (currentSection < sections.length - 1) {
+                            const nextCueIdx = findCueLineIndex(currentSection + 1, -1);
+                            if (nextCueIdx !== null && nextCueIdx >= 0) {
+                                setCurrentSection(prev => prev + 1);
+                                setCurrentLine(nextCueIdx);
+                            } else {
+                                setCurrentSection(prev => prev + 1);
+                                setCurrentLine(0);
+                            }
+                        } else {
+                            setFilageMode(false);
+                        }
+                        return;
+                    }
+                }
+
                 const effectiveRate = speechRate * filageSpeed;
                 const voiceKey = line.gender === 'female' ? 'FEMMES' : 'HOMMES';
                 const voiceName = selectedVoices[voiceKey];
                 const pitch = line.gender === 'female' ? 1.1 : 0.75;
                 const vol = line.isPresident ? 0 : 1;
+                // En mode Turbo+Filage : ne lire que les 2 dernières phrases de la cue line
+                const textToSpeak = (turboMode && !line.isPresident) ? getLastSentence(line.text) : line.text;
+                if (line.isPresident) setFilageProgress(0);
                 speakWithPunctuationPauses(
-                    line.text,
-                    { voiceName, pitch, rate: effectiveRate, volume: vol },
+                    textToSpeak,
+                    { voiceName, pitch, rate: effectiveRate, volume: vol,
+                      onProgress: line.isPresident ? (idx, total) => setFilageProgress(Math.round((idx / total) * 100)) : undefined },
                     () => {
                         if (filageGenRef.current !== gen) return;
                         if (!filageAutoAdvanceRef.current) return;
@@ -1079,7 +1117,7 @@
                     window.speechSynthesis.cancel();
                     if (filageTimeoutRef.current) { clearTimeout(filageTimeoutRef.current); filageTimeoutRef.current = null; }
                 };
-            }, [filageMode, currentSection, currentLine]);
+            }, [filageMode, currentSection, currentLine, turboMode]);
 
             const handleNext = () => {
                 setFilageMode(false);
@@ -1182,13 +1220,16 @@
                             React.createElement('div', { className: "flex items-center gap-2" },
                                 React.createElement('button', {
                                     onClick: () => setFilageMode(!filageMode),
-                                    className: `flex items-center gap-1.5 px-3 py-1 rounded-lg text-sm transition-all ${
+                                    className: `flex items-center gap-2 px-3 py-1 rounded-lg text-sm transition-all ${
                                         filageMode ? 'bg-orange-600 shadow-lg shadow-orange-500/50' : 'bg-slate-700 hover:bg-slate-600'
                                     }`,
                                     title: "Mode Filage : avance automatiquement, répliques du Président en silence chronométré"
                                 },
-                                    '⏯',
-                                    filageMode ? ' Filage actif' : ' Mode Filage'
+                                    React.createElement('svg', { width: "24", height: "24", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2" },
+                                        React.createElement('polygon', { points: "5 3 19 12 5 21 5 3" }),
+                                        React.createElement('line', { x1: "19", y1: "3", x2: "19", y2: "21" })
+                                    ),
+                                    filageMode ? 'Filage actif' : 'Mode Filage'
                                 ),
                                 React.createElement('button', {
                                     onClick: () => setTurboMode(!turboMode),
@@ -1235,10 +1276,16 @@
                                     React.createElement('div', { className: "flex justify-between items-center mb-2" },
                                         React.createElement('p', { className: "text-green-100 font-semibold" }, '🎭 VOTRE RÉPLIQUE')
                                     ),
-                                    React.createElement('div', { className: "text-center py-8" },
+                                    React.createElement('div', { className: "text-center py-6" },
                                         React.createElement('p', { className: "text-4xl mb-3" }, '🎭'),
-                                        React.createElement('p', { className: "text-green-300/80 italic text-xl" }, 'À vous de jouer !'),
-                                        React.createElement('p', { className: "text-green-400/60 text-sm mt-3 italic" }, '⏱ Lecture silencieuse en cours…')
+                                        React.createElement('p', { className: "text-green-300/80 italic text-xl mb-4" }, 'À vous de jouer !'),
+                                        React.createElement('div', { className: "w-full bg-slate-700 rounded-full h-3 mb-1" },
+                                            React.createElement('div', {
+                                                className: "bg-green-500 h-3 rounded-full transition-all duration-300",
+                                                style: { width: `${filageProgress}%` }
+                                            })
+                                        ),
+                                        React.createElement('p', { className: "text-green-400/70 text-sm mt-1" }, `${filageProgress}%`)
                                     )
                                 ) :
                             currentLineData.isPresident ? 
