@@ -691,7 +691,11 @@
                 }
                 presidentClickTimerRef.current = setTimeout(() => {
                     presidentClickTimerRef.current = null;
-                    if (!isRevealed) setRevealedLine(true);
+                    if (!isRevealed) {
+                        // Premier tap : révéler seulement, pas de lecture
+                        setRevealedLine(true);
+                        return;
+                    }
                     if (speechState === 'playing') {
                         // Pause
                         window.speechSynthesis.cancel();
