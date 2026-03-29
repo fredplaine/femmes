@@ -1005,8 +1005,11 @@
                     const line = sections[currentSection].lines[currentLine];
                     if (!line.isPresident) {
                         const sectionLines = sections[currentSection].lines;
-                        // isCueLine = STRICTEMENT la ligne juste avant le Président
-                        const isCueLine = turboMode && !!sectionLines[currentLine + 1]?.isPresident;
+                        // isCueLine = ligne juste avant le Président (même section OU dernière ligne avant une section qui commence par le Président)
+                        const nextSectionStartsWithPresident = currentLine === sectionLines.length - 1
+                            && currentSection < sections.length - 1
+                            && sections[currentSection + 1].lines[0]?.isPresident;
+                        const isCueLine = turboMode && (!!sectionLines[currentLine + 1]?.isPresident || nextSectionStartsWithPresident);
 
                         if (turboMode && !isCueLine) {
                             const cueIdx = findCueLineIndex(currentSection, currentLine);
