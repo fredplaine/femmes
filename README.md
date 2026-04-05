@@ -11,12 +11,14 @@ Fichier HTML unique (React 18 + Tailwind CDN), zéro build step.
 2. [Modes de lecture](#modes-de-lecture)
 3. [Mode Filage (⏯ Filage)](#mode-filage--filage)
 4. [Mode Turbo (⚡)](#mode-turbo-)
-5. [Souffleur/Prompteur (👁)](#souffleurprompeur-)
-6. [Paramètres des voix (🔊)](#paramètres-des-voix-)
-7. [Marque-pages (📌)](#marque-pages-)
-8. [Gestes tactiles](#gestes-tactiles)
-9. [Persistance des données](#persistance-des-données)
-10. [Architecture technique](#architecture-technique)
+5. [Mode Enregistrement (🎤)](#mode-enregistrement-)
+6. [Mode Lecture (🎧)](#mode-lecture-)
+7. [Souffleur/Prompteur (👁)](#souffleurprompeur-)
+8. [Paramètres des voix (🔊)](#paramètres-des-voix-)
+9. [Marque-pages (📌)](#marque-pages-)
+10. [Gestes tactiles](#gestes-tactiles)
+11. [Persistance des données](#persistance-des-données)
+12. [Architecture technique](#architecture-technique)
 
 ---
 
@@ -46,13 +48,13 @@ Fichier HTML unique (React 18 + Tailwind CDN), zéro build step.
 
 ## Modes de lecture
 
-Trois modes distincts, accessibles simultanément :
+Quatre modes distincts :
 
 ### Mode Normal (défaut)
 - Toutes les répliques sont lues **en entier**
 - Passage à la réplique suivante quand la lecture précédente est terminée
 - Texte des autres personnages affiché normalement
-- Votre texte (Le Président) visible dès que clic (ou après révélation)
+- Votre texte (Le Président) : 1er tap = révèle, 2e tap = lit à voix haute
 
 ### Mode Turbo (⚡)
 - **Saute automatiquement** aux répliques juste avant le vôtre ("cue lines")
@@ -65,11 +67,19 @@ Trois modes distincts, accessibles simultanément :
 - Simule un **vrai filage debout**
 - Avance **automatiquement** réplique par réplique (pas de clic "Suivant")
 - Répliques des autres → lues à voix haute (temps normal)
-- **Vos répliques (Le Président)** → silence chronométré **identique** à la durée vocale, vous donnant le temps exact de les dire
+- **Vos répliques (Le Président)** → silence chronométré **identique** à la durée vocale
 - Les vôtres affichent : **"🎭 À vous de jouer !"** + barre de progression (%)
 - Auto-avance désactivable (bouton ▶ Auto ON / ⏸ Auto OFF)
+- **🎤 Enregistrer** : active l'enregistrement auto de vos répliques
 
 **Mode Filage + Turbo** : combine répliques de cue line (2 phrases lues) + silence de toute votre réplique.
+
+### Mode Lecture (🎧)
+- Lit le texte complet comme un filage, **en remplaçant vos silences par vos enregistrements**
+- Répliques des autres → TTS normal
+- Vos répliques → joue votre enregistrement MediaRecorder
+- Si pas d'enregistrement pour une réplique → passage automatique (0.8s)
+- Disponible uniquement quand au moins un enregistrement existe
 
 ---
 
@@ -114,6 +124,57 @@ Visible quand Mode Filage est **actif** :
 - Délai de 300ms entre fin lecture et changement de ligne
 - Fonctionne même en changeant de scène
 - Les changements de section sont transparents
+
+---
+
+## Mode Enregistrement (🎤)
+
+### Activation
+- Bouton **🎤 Enregistrer** dans le panneau orange Mode Filage (visible uniquement quand Filage actif)
+- S'active/désactive en cours de filage sans l'interrompre
+
+### Comportement
+- Dès qu'une **réplique du Président** arrive en filage → enregistrement **démarre automatiquement**
+- Dès que la ligne suivante commence → enregistrement **s'arrête et se sauvegarde**
+- Badge **● REC** rouge clignotant pendant l'enregistrement
+- Chaque réplique = une prise distincte (clé `section_ligne`)
+- **Nouvelle prise écrase l'ancienne** pour la même réplique
+
+### Contrôles manuels (sur l'écran "À vous de jouer !")
+- **🎤 Rec** / **⏹ Stop** : démarrer/arrêter manuellement si besoin
+- **▶ Écouter** : réécouter la prise actuelle (visible dès qu'un enregistrement existe)
+- **🗑** : effacer l'enregistrement de cette réplique
+
+### Réécoute individuelle
+- Naviguer sur une réplique du Président → révéler le texte
+- **🎙 Enreg. : ▶ Écouter** apparaît sous le texte
+- Visible aussi sur l'écran "Cliquez pour révéler" (sans avoir à révéler)
+
+### Limitation
+- Enregistrements stockés en mémoire (perdus au rechargement)
+- Nécessite autorisation microphone navigateur
+
+---
+
+## Mode Lecture (🎧)
+
+### Activation
+- Bouton **🎧 Mode Lecture** (bleu) dans la barre des modes
+- **Disponible uniquement** quand au moins un enregistrement existe
+- Désactive automatiquement le Mode Filage
+
+### Comportement
+- Avance automatiquement réplique par réplique (comme le Mode Filage)
+- **Répliques des autres** → lues par TTS (voix normale)
+- **Vos répliques (Le Président)** → joue votre enregistrement
+  - Enregistrement disponible → lecture audio + icône 🔊
+  - Pas d'enregistrement → ⚠️ "Pas d'enregistrement — passage" (0.8s)
+- Arrêt automatique à la fin de la pièce
+
+### Cas d'usage typique
+1. Mode Filage + 🎤 Enregistrer → faire un filage complet (ou partiel)
+2. Arrêter le filage
+3. Activer Mode Lecture → s'entendre dans le contexte des autres répliques
 
 ---
 
@@ -310,7 +371,7 @@ La plupart des données sont sauvegardées en `localStorage` navigateur :
 ### État global
 - **Lecture** : currentSection, currentLine, isPlaying
 - **Voix** : speechRate, commaPause, sentencePause, selectedVoices, voices
-- **Modes** : turboMode, filageMode, filageSpeed, filageAutoAdvance, filageProgress
+- **Modes** : turboMode, filageMode, filageSpeed, filageAutoAdvance, filageProgress, lectureMode, recordingMode, isRecording, recordings, playingRecording
 - **Souffleur** : showPrompter, prompterState, prompterDelay, prompterTimer
 - **Interaction** : showSettings, showPrompter, showBookmarks, revealedLine
 - **Marque-pages** : bookmarks (objet clé-valeur)
@@ -323,6 +384,8 @@ La plupart des données sont sauvegardées en `localStorage` navigateur :
 - `speak()` : wrapper lecture + avance automatique
 - `getLastSentence()` : extrait 2 dernières phrases (pour turbo)
 - `findCueLineIndex()` : cherche prochaine réplique du Président
+- `startRecording()` / `stopRecordingNow()` : MediaRecorder API, clé section_ligne
+- `playRecordingForKey()` / `deleteRecordingForKey()` : lecture/suppression prise
 - Navigation : `handleNext()`, `handlePrevious()`, `handleReset()`
 - Marque-pages : `toggleBookmark()`, `goToBookmark()`, `removeBookmark()`
 - Gestes : `handleTouchStart()`, `handleTouchEnd()`
@@ -332,7 +395,15 @@ La plupart des données sont sauvegardées en `localStorage` navigateur :
 - Intègre logique Turbo (sauter non-cue, ne lire que 2 phrases)
 - Utilise `filageGenRef` pour éviter race conditions
 - Callback `onProgress` met à jour `filageProgress` en %
-- Cleanup : `cancel()` + `clearTimeout`
+- Auto-démarre enregistrement si `recordingModeRef.current` + réplique Président
+- Cleanup : `cancel()` + `clearTimeout` + arrêt MediaRecorder
+
+### Logique lecture
+- `useEffect` dédié sur `lectureMode`, `currentSection`, `currentLine`
+- Utilise `lectureGenRef` + `lectureAudioRef` pour éviter race conditions
+- Réplique Président avec enregistrement → `new Audio(url).play()`
+- Réplique Président sans enregistrement → timeout 800ms puis avance
+- Répliques autres → `speakWithPunctuationPauses()` avec callback `advanceNext`
 
 ### Rendering
 - Utilise `React.createElement` (pas JSX direct)
@@ -379,18 +450,8 @@ La plupart des données sont sauvegardées en `localStorage` navigateur :
 - **Technique** : toggle bool + override pauses (0ms) + vitesse minimale en `speakWithPunctuationPauses()`
 
 #### 3. **Enregistrement Audio Personnel** 🎤 ✅ Implémenté
-- **Description** : Enregistrer votre voix pendant vos répliques en Mode Filage pour auto-critique
-- **Cas d'usage** : Mode Filage actif + "🎤 Enregistrer" activé → enregistre uniquement vos répliques (une par une)
-- **Fonctionnalités** :
-  - 🎤 Toggle **"Enregistrer"** dans le panneau Filage (orange) pour activer le mode
-  - **🎤 Rec** / **⏹ Stop** : démarre/arrête l'enregistrement sur la réplique actuelle
-  - **▶ Écouter** : rejoue votre enregistrement pour cette réplique
-  - **🗑** : efface l'enregistrement de la réplique
-  - Badge **REC** rouge clignotant quand enregistrement actif
-  - Compteur d'enregistrements dans le panneau Filage (ex: "3 enreg.")
-- **Technique** : `MediaRecorder API` + `Blob URLs` (audio/webm), clé par réplique (`section_ligne`)
-- **Limitation** : enregistrements perdus au rechargement (stockage mémoire, non persisté en localStorage)
-- **Bonus futur** : export WAV/MP3 + rejouer filage complet avec vos enregistrements synchronisés
+- Voir section [Mode Enregistrement](#mode-enregistrement-) et [Mode Lecture](#mode-lecture-)
+- **Bonus futur** : export WAV/MP3, persistance localStorage (IndexedDB), rejouer filage avec sync TTS+audio
 
 ### 📋 **Moyen terme**
 
